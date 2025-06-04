@@ -26,16 +26,13 @@ import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.MovementState;
-import baritone.process.BuilderProcess;
 import baritone.utils.BlockStateInterface;
 import com.google.common.collect.ImmutableSet;
 import java.util.Set;
-import java.util.logging.Logger;
-
 import net.minecraft.core.Direction;
-import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.FallingBlock;
 import net.minecraft.world.level.block.state.BlockState;
-import org.apache.logging.log4j.LogManager;
 
 public class MovementAscend extends Movement {
 
@@ -44,6 +41,7 @@ public class MovementAscend extends Movement {
     public MovementAscend(IBaritone baritone, BetterBlockPos src, BetterBlockPos dest) {
         super(baritone, src, dest, new BetterBlockPos[]{dest, src.above(2), dest.above()}, dest.below());
     }
+
     @Override
     public void reset() {
         super.reset();
@@ -65,28 +63,9 @@ public class MovementAscend extends Movement {
                 prior.above()
         );
     }
+
     public static double cost(CalculationContext context, int x, int y, int z, int destX, int destZ) {
         BlockState toPlace = context.get(destX, y, destZ);
-        Block toplace = toPlace.getBlock();
-        /*
-        if (toplace instanceof CarpetBlock) {
-            BuilderProcess.BuilderCalculationContext bcc = (BuilderProcess.BuilderCalculationContext) context;
-            BlockState schematicState = bcc.getSchematic(destX, y, destZ, toPlace);
-
-            // Only check if it's actually a carpet in the schematic
-            if (schematicState != null && schematicState.getBlock() instanceof CarpetBlock) {
-                // Prevent placing carpet on same block player is standing on
-                // z here represents source Y level/player position
-                if (y == z) { // If trying to place at same Y level as player
-                    return COST_INF;
-                }
-
-                // Allow movement costs for jumping over/onto carpets
-                return context.costOfPlacingAt(destX, y, destZ, toPlace);
-            }
-        }
-        */
-
         double additionalPlacementCost = 0;
         if (!MovementHelper.canWalkOn(context, destX, y, destZ, toPlace)) {
             additionalPlacementCost = context.costOfPlacingAt(destX, y, destZ, toPlace);
