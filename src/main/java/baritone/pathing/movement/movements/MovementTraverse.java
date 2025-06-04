@@ -78,6 +78,9 @@ public class MovementTraverse extends Movement {
         BlockState pb0 = context.get(destX, y + 1, destZ);
         BlockState pb1 = context.get(destX, y, destZ);
         BlockState destOn = context.get(destX, y - 1, destZ);
+        if (destOn.getBlock() instanceof CarpetBlock) {
+            return COST_INF;
+        }
         BlockState srcDown = context.get(x, y - 1, z);
         Block srcDownBlock = srcDown.getBlock();
         boolean standingOnABlock = MovementHelper.mustBeSolidToWalkOn(context, x, y - 1, z, srcDown);

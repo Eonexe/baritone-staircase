@@ -26,12 +26,14 @@ import baritone.pathing.movement.CalculationContext;
 import baritone.pathing.movement.Movement;
 import baritone.pathing.movement.MovementHelper;
 import baritone.pathing.movement.MovementState;
+import baritone.process.BuilderProcess;
 import baritone.utils.BlockStateInterface;
 import baritone.utils.pathing.MutableMoveResult;
 import com.google.common.collect.ImmutableSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CarpetBlock;
 import net.minecraft.world.level.block.FallingBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
@@ -77,8 +79,30 @@ public class MovementDescend extends Movement {
     }
 
     public static void cost(CalculationContext context, int x, int y, int z, int destX, int destZ, MutableMoveResult res) {
-        double totalCost = 0;
         BlockState destDown = context.get(destX, y - 1, destZ);
+        double totalCost = 0;
+        Block dest = destDown.getBlock();
+        // should be in ascend
+        /*
+        if (destDown.getBlock() instanceof CarpetBlock) {
+            BuilderProcess.BuilderCalculationContext bcc = (BuilderProcess.BuilderCalculationContext) context;
+            // Get the current state at the position we want to check
+            BlockState checkState = bcc.bsi.get0(destX, y + 1, destZ + 1);
+            // Get what the schematic wants at this position
+            BlockState schematicState = bcc.getSchematic(destX, y + 1, destZ + 1, checkState);
+
+            // If there's a desired state in the schematic and it's not properly placed yet
+            if (schematicState != null && !BuilderProcess.valid(checkState, schematicState, false)) {
+                res.cost = COST_INF;
+                return;
+            }
+
+            // Return COST_INF since we're on a carpet
+            res.cost = COST_INF;
+            return;
+        }
+        */
+
         totalCost += MovementHelper.getMiningDurationTicks(context, destX, y - 1, destZ, destDown, false);
         if (totalCost >= COST_INF) {
             return;
@@ -147,9 +171,9 @@ public class MovementDescend extends Movement {
         int effectiveStartHeight = y;
         for (int fallHeight = 3; true; fallHeight++) {
             int newY = y - fallHeight;
-            if (newY < context.world.getMinY()) {
+            if (newY < 0) {
                 // when pathing in the end, where you could plausibly fall into the void
-                // this check prevents it from getting the block at y=(below whatever the minimum height is) and crashing
+                // this check prevents it from getting the block at y=-1 and crashing
                 return false;
             }
             boolean reachedMinimum = fallHeight >= context.minFallHeight;
