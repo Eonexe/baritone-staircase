@@ -1,10 +1,11 @@
 # This workflow will build a Java project with Gradle
 # For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-gradle
 
-name: Build and Draft Release
+name: Java CI with Gradle
 
 on:
-  workflow_dispatch:
+  push:
+  pull_request:
 
 jobs:
   build:
@@ -40,28 +41,3 @@ jobs:
       with:
         name: Mappings
         path: mapping/
-
-    - name: Create GitHub Release
-      if: startsWith(github.ref, 'refs/tags/')
-      id: create_release
-      uses: actions/create-release@v1
-      with:
-        tag_name: ${{ github.ref_name }}
-        release_name: Release ${{ github.ref_name }}
-        draft: true
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Upload all JARs in dist/
-      if: startsWith(github.ref, 'refs/tags/')
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        UPLOAD_URL: ${{ steps.create_release.outputs.upload_url }}
-      run: |
-        for file in dist/*.jar; do
-          [ -e "$file" ] || continue
-          echo "Uploading $file"
-          gh release upload "${GITHUB_REF_NAME}" "$file" --repo "$GITHUB_REPOSITORY" --clobber
-        done
-      shell: bash
