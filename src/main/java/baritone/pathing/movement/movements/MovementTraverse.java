@@ -84,7 +84,7 @@ public class MovementTraverse extends Movement {
         boolean frostWalker = standingOnABlock && !context.assumeWalkOnWater && MovementHelper.canUseFrostWalker(context, destOn);
         if (destOn.getBlock() instanceof CarpetBlock) {
             return COST_INF;
-        }
+        } //a
         if (frostWalker || MovementHelper.canWalkOn(context, destX, y - 1, destZ, destOn)) { //this is a walk, not a bridge
             double WC = WALK_ONE_BLOCK_COST;
             boolean water = false;
