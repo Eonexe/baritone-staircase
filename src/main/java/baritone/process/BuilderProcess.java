@@ -25,13 +25,7 @@ import baritone.api.pathing.goals.GoalGetToBlock;
 import baritone.api.process.IBuilderProcess;
 import baritone.api.process.PathingCommand;
 import baritone.api.process.PathingCommandType;
-import baritone.api.schematic.FillSchematic;
-import baritone.api.schematic.ISchematic;
-import baritone.api.schematic.IStaticSchematic;
-import baritone.api.schematic.MaskSchematic;
-import baritone.api.schematic.SubstituteSchematic;
-import baritone.api.schematic.RotatedSchematic;
-import baritone.api.schematic.MirroredSchematic;
+import baritone.api.schematic.*;
 import baritone.api.schematic.format.ISchematicFormat;
 import baritone.api.utils.*;
 import baritone.api.utils.Rotation;
@@ -43,8 +37,8 @@ import baritone.utils.BaritoneProcessHelper;
 import baritone.utils.BlockStateInterface;
 import baritone.utils.PathingCommandContext;
 import baritone.utils.schematic.MapArtSchematic;
-import baritone.utils.schematic.SelectionSchematic;
 import baritone.utils.schematic.SchematicSystem;
+import baritone.utils.schematic.SelectionSchematic;
 import baritone.utils.schematic.litematica.LitematicaHelper;
 import baritone.utils.schematic.schematica.SchematicaHelper;
 import com.google.common.collect.ImmutableSet;
@@ -254,16 +248,6 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
     }
 
     @Override
-    public Optional<Integer> getMinLayer() {
-        return Optional.empty();
-    }
-
-    @Override
-    public Optional<Integer> getMaxLayer() {
-        return Optional.empty();
-    }
-
-    @Override
     public boolean isActive() {
         return schematic != null;
     }
@@ -340,9 +324,6 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                         continue; // irrelevant
                     }
                     BlockState curr = bcc.bsi.get0(x, y, z);
-                    if (!(bcc.bsi.get0(x, y + 1, z).getBlock() instanceof AirBlock)) {
-                        continue;
-                    }
                     if (MovementHelper.isReplaceable(x, y, z, curr, bcc.bsi) && !valid(curr, desired, false)) {
                         if (dy == 1 && bcc.bsi.get0(x, y + 1, z).getBlock() instanceof AirBlock) {
                             continue;
@@ -402,7 +383,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
 
     private OptionalInt hasAnyItemThatWouldPlace(BlockState desired, HitResult result, Rotation rot) {
         for (int i = 0; i < 9; i++) {
-            ItemStack stack = ctx.player().getInventory().items.get(i);
+            ItemStack stack = ctx.player().getInventory().getNonEquipmentItems().get(i);
             if (stack.isEmpty() || !(stack.getItem() instanceof BlockItem)) {
                 continue;
             }
@@ -448,7 +429,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
                 double z = side.getStepZ() == 0 ? 0.5 : (1 + side.getStepZ()) / 2D;
                 return new Vec3[]{new Vec3(x, 0.25, z), new Vec3(x, 0.75, z)};
             default: // null
-                throw new IllegalStateException();
+                throw new IllegalStateException("Unexpected side " + side);
         }
     }
 
@@ -574,7 +555,7 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         if (toPlace.isPresent() && isSafeToCancel && ctx.player().onGround() && ticks <= 0) {
             Rotation rot = toPlace.get().rot;
             baritone.getLookBehavior().updateTarget(rot, true);
-            ctx.player().getInventory().selected = toPlace.get().hotbarSelection;
+            ctx.player().getInventory().setSelectedSlot(toPlace.get().hotbarSelection);
             baritone.getInputOverrideHandler().setInputForceState(Input.SNEAK, true);
             if ((ctx.isLookingAt(toPlace.get().placeAgainst) && ((BlockHitResult) ctx.objectMouseOver()).getDirection().equals(toPlace.get().side)) || ctx.playerRotations().isReallyCloseTo(rot)) {
                 baritone.getInputOverrideHandler().setInputForceState(Input.CLICK_RIGHT, true);
@@ -729,9 +710,6 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         incorrectPositions.forEach(pos -> {
             BlockState state = bcc.bsi.get0(pos);
             if (state.getBlock() instanceof AirBlock) {
-                if (!(bcc.bsi.get0(pos.x, pos.y + 1, pos.z).getBlock() instanceof AirBlock)) {
-                    return; // Skip this position
-                }
                 BlockState desired = bcc.getSchematic(pos.x, pos.y, pos.z, state);
                 if (desired == null) {
                     outOfBounds.add(pos);
@@ -1008,10 +986,26 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
         return paused ? "Builder Paused" : "Building " + name;
     }
 
+    @Override
+    public Optional<Integer> getMinLayer() {
+        if (Baritone.settings().buildInLayers.value) {
+            return Optional.of(this.layer);
+        }
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<Integer> getMaxLayer() {
+        if (Baritone.settings().buildInLayers.value) {
+            return Optional.of(this.stopAtHeight);
+        }
+        return Optional.empty();
+    }
+
     private List<BlockState> approxPlaceable(int size) {
         List<BlockState> result = new ArrayList<>();
         for (int i = 0; i < size; i++) {
-            ItemStack stack = ctx.player().getInventory().items.get(i);
+            ItemStack stack = ctx.player().getInventory().getNonEquipmentItems().get(i);
             if (stack.isEmpty() || !(stack.getItem() instanceof BlockItem)) {
                 result.add(Blocks.AIR.defaultBlockState());
                 continue;
@@ -1122,86 +1116,28 @@ public final class BuilderProcess extends BaritoneProcessHelper implements IBuil
 
         @Override
         public double costOfPlacingAt(int x, int y, int z, BlockState current) {
-            if (isPossiblyProtected(x, y, z) || !worldBorder.canPlaceAt(x, z)) {
+            if (isPossiblyProtected(x, y, z) || !worldBorder.canPlaceAt(x, z)) { // make calculation fail properly if we can't build
                 return COST_INF;
             }
             BlockState sch = getSchematic(x, y, z, current);
             if (sch != null) {
-                // Add check for carpet and weighted pressure plate placement
-                if (sch.getBlock() instanceof CarpetBlock ||
-                        sch.getBlock() instanceof WeightedPressurePlateBlock) {
-
-                    BlockState stateBelow = bsi.get0(x, y - 1, z);
-                    BlockState currentState = bsi.get0(x, y, z);
-
-                    // Don't place on air
-                    if (stateBelow.getBlock() instanceof AirBlock) {
-                        return COST_INF;
-                    }
-
-                    // Don't place on existing carpets/plates
-                    if (currentState.getBlock() instanceof CarpetBlock ||
-                            currentState.getBlock() instanceof PressurePlateBlock) {
-                        return COST_INF;
-                    }
-
-                    // Collision detection
-                    if (ctx.player() != null) {
-                        // Check if block is isolated on same Y level in schematic
-                        boolean hasAdjacentBlocks = false;
-                        // Only check horizontal directions (same Y level)
-                        for (Direction dir : Direction.values()) {
-                            if (dir.getStepY() != 0) continue; // Skip up/down directions
-
-                            BlockPos adjPos = new BlockPos(x + dir.getStepX(), y, z + dir.getStepZ());
-                            BlockState adjState = getSchematic(adjPos.getX(), adjPos.getY(), adjPos.getZ(), bsi.get0(adjPos));
-                            if (adjState != null && !(adjState.getBlock() instanceof AirBlock)) {
-                                hasAdjacentBlocks = true;
-                                break;
-                            }
-                        }
-
-                        // Only do collision checks if block has neighbors on same Y level
-                        if (hasAdjacentBlocks) {
-                            BetterBlockPos pos = new BetterBlockPos(x, y, z);
-                            AABB playerBox = ctx.player().getBoundingBox();
-                            VoxelShape blockShape = sch.getCollisionShape(ctx.world(), pos);
-
-                            // Check player collision
-                            double padding = 0.2D;
-                            playerBox = playerBox.inflate(padding, 0, padding);
-
-                            AABB blockBox;
-                            if (blockShape.isEmpty()) {
-                                blockBox = new AABB(x - padding, y, z - padding,
-                                        x + 1 + padding, y + 1, z + 1 + padding);
-                            } else {
-                                blockBox = blockShape.bounds().move(x, y, z);  // Changed to bounds()
-                                blockBox = blockBox.inflate(padding);
-                            }
-
-                            if (playerBox.intersects(blockBox)) {
-                                return COST_INF;
-                            }
-
-                            // Check Y level difference
-                            double playerY = ctx.player().getY();
-                            if (Math.abs(playerY - y) < 0.2) {
-                                return COST_INF;
-                            }
-                        }
-                    }
-                }
-
+                // TODO this can return true even when allowPlace is off.... is that an issue?
                 if (sch.getBlock() instanceof AirBlock) {
-                    return placeBlockCost * Baritone.settings().placeIncorrectBlockPenaltyMultiplier.value;
+                    // we want this to be air, but they're asking if they can place here
+                    // this won't be a schematic block, this will be a throwaway
+                    return placeBlockCost * Baritone.settings().placeIncorrectBlockPenaltyMultiplier.value; // we're going to have to break it eventually
                 }
                 if (placeable.contains(sch)) {
-                    return 0;
+                    return 0; // thats right we gonna make it FREE to place a block where it should go in a structure
+                    // no place block penalty at all 😎
+                    // i'm such an idiot that i just tried to copy and paste the epic gamer moment emoji too
+                    // get added to unicode when?
                 }
                 if (!hasThrowaway) {
                     return COST_INF;
                 }
+                // we want it to be something that we don't have
+                // even more of a pain to place something wrong
                 return placeBlockCost * 1.5 * Baritone.settings().placeIncorrectBlockPenaltyMultiplier.value;
             } else {
                 if (hasThrowaway) {

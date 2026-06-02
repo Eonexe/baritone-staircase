@@ -47,6 +47,9 @@ allprojects {
 
     repositories {
         maven {
+            url = "https://files.minecraftforge.net/maven/"
+        }
+        maven {
             name = 'spongepowered-repo'
             url = 'https://repo.spongepowered.org/repository/maven-public/'
         }
@@ -92,7 +95,7 @@ allprojects {
         mappings {
             intermediary()
             mojmap()
-            parchment("1.20.6", "2024.05.01")
+            parchment("1.21.4", "2025.03.23")
 
             devFallbackNamespace "official"
         }

@@ -237,9 +237,9 @@ public final class Settings {
     /**
      * Blocks that Baritone will attempt to avoid (Used in avoidance)
      */
-    public final Setting<List<Block>> blocksToAvoid = new Setting<>(new ArrayList<>(
-            // Leave Empty by Default
-    ));
+    public final Setting<List<Block>> blocksToAvoid = new Setting<>(new ArrayList<>(List.of(
+            Blocks.TRIPWIRE
+    )));
 
     /**
      * Blocks that Baritone is not allowed to break
@@ -721,8 +721,7 @@ public final class Settings {
     public final Setting<Boolean> renderGoalIgnoreDepth = new Setting<>(true);
 
     /**
-     * Renders X/Z type Goals with the vanilla beacon beam effect. Combining this with
-     * {@link #renderGoalIgnoreDepth} will cause strange render clipping.
+     * Renders X/Z type Goals as a no-depth beacon beam instead of the full-height goal box.
      */
     public final Setting<Boolean> renderGoalXZBeacon = new Setting<>(false);
 
@@ -985,6 +984,11 @@ public final class Settings {
      * Replant nether wart while farming. This setting only has an effect when replantCrops is also enabled
      */
     public final Setting<Boolean> replantNetherWart = new Setting<>(false);
+
+    /**
+     * When enabled, farming will be restricted to the current selection.
+     */
+    public final Setting<Boolean> farmUsingSelection = new Setting<>(false);
 
     /**
      * Farming will scan for at most this many blocks.
@@ -1542,6 +1546,11 @@ public final class Settings {
      * Verbose chat logging in elytra mode
      */
     public final Setting<Boolean> elytraChatSpam = new Setting<>(false);
+
+    /**
+     * Sneak when magma blocks are under feet
+     */
+    public final Setting<Boolean> allowWalkOnMagmaBlocks = new Setting<>(false);
 
     /**
      * A map of lowercase setting field names to their respective setting
